@@ -1,26 +1,12 @@
-from Source.Core.Formats.Manga import Branch, Chapter, Manga, Statuses, Types
-from Source.Core.ImagesDownloader import ImagesDownloader
-from Source.Core.Base.MangaParser import MangaParser
-from Source.Core.Base import GetLatestGitTag
+from Source.Core.Base.Formats.Manga import Branch, Chapter, Types
+from Source.Core.Base.Parsers.MangaParser import MangaParser
+from Source.Core.Base.Formats.BaseFormat import Statuses
 
-from dublib.WebRequestor import Protocols, WebConfig, WebLibs, WebRequestor
 from dublib.Methods.Data import RemoveRecurringSubstrings, Zerotify
+from dublib.WebRequestor import WebRequestor
 
 from datetime import datetime
 from time import sleep
-
-#==========================================================================================#
-# >>>>> ОПРЕДЕЛЕНИЯ <<<<< #
-#==========================================================================================#
-
-NAME = "mangalib"
-VERSION = GetLatestGitTag(NAME)
-SITE = "test-front.mangalib.me"
-TYPE = Manga
-
-#==========================================================================================#
-# >>>>> ОСНОВНОЙ КЛАСС <<<<< #
-#==========================================================================================#
 
 class Parser(MangaParser):
 	"""Парсер."""
@@ -32,22 +18,8 @@ class Parser(MangaParser):
 	def _InitializeRequestor(self) -> WebRequestor:
 		"""Инициализирует модуль WEB-запросов."""
 
-		Config = WebConfig()
-		Config.select_lib(WebLibs.requests)
-		Config.requests.enable_proxy_protocol_switching(True)
-		Config.generate_user_agent("pc")
-		Config.set_retries_count(self._Settings.common.retries)
-		Config.add_header("Referer", f"https://{SITE}/")
-		if self._Settings.custom["token"]: Config.add_header("Authorization", self._Settings.custom["token"])
-		WebRequestorObject = WebRequestor(Config)
-		
-		if self._Settings.proxy.enable: WebRequestorObject.add_proxy(
-			Protocols.HTTP,
-			host = self._Settings.proxy.host,
-			port = self._Settings.proxy.port,
-			login = self._Settings.proxy.login,
-			password = self._Settings.proxy.password
-		)
+		WebRequestorObject = super()._InitializeRequestor()
+		if self._Settings.custom["token"]: WebRequestorObject.config.add_header("Authorization", self._Settings.custom["token"])
 
 		return WebRequestorObject
 	
@@ -55,7 +27,7 @@ class Parser(MangaParser):
 		"""Метод, выполняющийся после инициализации объекта."""
 
 		self.__TitleSlug = None
-
+		self.__API = "api.cdnlibs.org"
 		self.__Sites = {
 			"mangalib.me": 1,
 			"slashlib.me": 2,
@@ -106,7 +78,7 @@ class Parser(MangaParser):
 			data – словарь данных тайтла.
 		"""
 
-		Domain = SITE
+		Domain = self._Manifest.site
 
 		if self._Title.site:
 
@@ -140,7 +112,7 @@ class Parser(MangaParser):
 		"""Получает содержимое тайтла."""
 
 		Branches: dict[int, Branch] = dict()
-		Response = self._Requestor.get(f"https://api.lib.social/api/manga/{self.__TitleSlug}/chapters")
+		Response = self._Requestor.get(f"https://{self.__API}/api/manga/{self.__TitleSlug}/chapters")
 		
 		if Response.status_code == 200:
 			Data = Response.json["data"]
@@ -159,7 +131,7 @@ class Parser(MangaParser):
 					ChapterObject.set_number(CurrentChapterData["number"])
 					ChapterObject.set_name(CurrentChapterData["name"])
 					ChapterObject.set_is_paid(False)
-					ChapterObject.set_translators([sub["name"] for sub in BranchData["teams"]])
+					ChapterObject.set_workers([sub["name"] for sub in BranchData["teams"]])
 					ChapterObject.add_extra_data("moderated", False if "moderation" in BranchData.keys() else True)
 
 					Branches[BranchID].add_chapter(ChapterObject)
@@ -229,10 +201,10 @@ class Parser(MangaParser):
 
 		Servers = list()
 		CurrentSiteID = self.__GetSiteID()
-		URL = f"https://api.lib.social/api/constants?fields[]=imageServers"
+		URL = f"https://{self.__API}/api/constants?fields[]=imageServers"
 		Headers = {
 			"Authorization": self._Settings.custom["token"],
-			"Referer": f"https://{SITE}/"
+			"Referer": f"https://{self._Manifest.site}/"
 		}
 		Response = self._Requestor.get(URL, headers = Headers)
 
@@ -273,7 +245,7 @@ class Parser(MangaParser):
 			site – домен сайта (по умолчанию используемый парсером).
 		"""
 
-		if not site: site = SITE
+		if not site: site = self._Manifest.site
 		SiteID = None
 
 		for Domain in self.__Sites.keys():
@@ -290,13 +262,13 @@ class Parser(MangaParser):
 
 		Slides = list()
 
-		if not chapter["moderated"]:
+		if "moderated" in chapter.to_dict().keys() and not chapter["moderated"]:
 			self._Portals.chapter_skipped(self._Title, chapter, comment = "Not moderated.")
 			return Slides
 		
 		Server = self.__GetImagesServers(self._Settings.custom["server"])[0]
 		Branch = "" if branch_id == str(self._Title.id) + "0" else f"&branch_id={branch_id}"
-		URL = f"https://api.lib.social/api/manga/{self.__TitleSlug}/chapter?number={chapter.number}&volume={chapter.volume}{Branch}"
+		URL = f"https://{self.__API}/api/manga/{self.__TitleSlug}/chapter?number={chapter.number}&volume={chapter.volume}{Branch}"
 		Response = self._Requestor.get(URL)
 		
 		if Response.status_code == 200:
@@ -341,10 +313,10 @@ class Parser(MangaParser):
 			slug – алиас.
 		"""
 		
-		URL = f"https://api.lib.social/api/manga/{self.__TitleSlug}?fields[]=eng_name&fields[]=otherNames&fields[]=summary&fields[]=releaseDate&fields[]=type_id&fields[]=caution&fields[]=genres&fields[]=tags&fields[]=franchise&fields[]=authors&fields[]=manga_status_id&fields[]=status_id"
+		URL = f"https://{self.__API}/api/manga/{self.__TitleSlug}?fields[]=eng_name&fields[]=otherNames&fields[]=summary&fields[]=releaseDate&fields[]=type_id&fields[]=caution&fields[]=genres&fields[]=tags&fields[]=franchise&fields[]=authors&fields[]=manga_status_id&fields[]=status_id"
 		Headers = {
 			"Authorization": self._Settings.custom["token"],
-			"Referer": f"https://{SITE}/"
+			"Referer": f"https://{self._Manifest.site}/"
 		}
 		Response = self._Requestor.get(URL, headers = Headers)
 
@@ -432,7 +404,7 @@ class Parser(MangaParser):
 		CurrentDate = datetime.utcnow()
 
 		while not IsUpdatePeriodOut:
-			Response = self._Requestor.get(f"https://api.lib.social/api/latest-updates?page={Page}", headers = Headers)
+			Response = self._Requestor.get(f"https://{self.__API}/api/latest-updates?page={Page}", headers = Headers)
 
 			if Response.status_code == 200:
 				UpdatesPage = Response.json["data"]
@@ -451,6 +423,7 @@ class Parser(MangaParser):
 				IsUpdatePeriodOut = True
 				self._Portals.request_error(Response, f"Unable to request updates page {Page}.")
 
+
 			if not IsUpdatePeriodOut:
 				self._Portals.collect_progress_by_page(Page)
 				Page += 1
@@ -464,23 +437,7 @@ class Parser(MangaParser):
 			url – ссылка на изображение.
 		"""
 
-		Config = WebConfig()
-		Config.select_lib(WebLibs.requests)
-		Config.requests.enable_proxy_protocol_switching(True)
-		Config.generate_user_agent("pc")
-		Config.set_retries_count(self._Settings.common.retries)
-		Config.add_header("Referer", f"https://{SITE}/")
-		WebRequestorObject = WebRequestor(Config)
-
-		if self._Settings.proxy.enable: WebRequestorObject.add_proxy(
-			Protocols.HTTP,
-			host = self._Settings.proxy.host,
-			port = self._Settings.proxy.port,
-			login = self._Settings.proxy.login,
-			password = self._Settings.proxy.password
-		)
-
-		Result = ImagesDownloader(self._SystemObjects, WebRequestorObject).temp_image(url)
+		Result = self._ImagesDownloader.temp_image(url)
 		
 		if not Result:
 			Servers = self.__GetImagesServers(all_sites = True)
@@ -492,7 +449,7 @@ class Parser(MangaParser):
 
 				for Server in Servers:
 					Link = Server + ImageURI
-					Result = ImagesDownloader(self._SystemObjects, WebRequestorObject).temp_image(Link)
+					Result = self._ImagesDownloader.temp_image(Link)
 					
 					if Result: break
 					elif Server != Servers[-1]: sleep(self._Settings.common.delay)
