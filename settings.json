@@ -29,6 +29,7 @@
 	"custom": {
 		"token": "",
 		"server": "main",
-		"add_moderation_status": false
+		"add_moderation_status": false,
+		"add_free_publication_date": false
 	}
 }

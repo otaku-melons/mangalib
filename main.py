@@ -130,9 +130,12 @@ class Parser(MangaParser):
 					ChapterObject.set_volume(CurrentChapterData["volume"])
 					ChapterObject.set_number(CurrentChapterData["number"])
 					ChapterObject.set_name(CurrentChapterData["name"])
-					ChapterObject.set_is_paid(False)
+					ChapterObject.set_is_paid("restricted_view" in BranchData and not BranchData["restricted_view"]["is_open"])
 					ChapterObject.set_workers([sub["name"] for sub in BranchData["teams"]])
 					ChapterObject.add_extra_data("moderated", False if "moderation" in BranchData.keys() else True)
+
+					if self._Settings.custom["add_free_publication_date"] and ChapterObject.is_paid:
+						ChapterObject.add_extra_data("free-publication-date", BranchData["restricted_view"]["expired_at"])
 
 					Branches[BranchID].add_chapter(ChapterObject)
 
@@ -272,7 +275,7 @@ class Parser(MangaParser):
 		Response = self._Requestor.get(URL)
 		
 		if Response.status_code == 200:
-			Data = Response.json["data"]["pages"]
+			Data = Response.json["data"].setdefault("pages", tuple())
 			sleep(self._Settings.common.delay)
 
 			for SlideIndex in range(len(Data)):
