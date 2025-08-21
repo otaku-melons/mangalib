@@ -386,8 +386,19 @@ class Parser(MangaParser):
 		"""
 
 		Slides = self.__GetSlides(branch.id, chapter)
-		if not self._Settings.custom["add_moderation_status"]: chapter.remove_extra_data("moderated")
 		for Slide in Slides: chapter.add_slide(Slide["link"], Slide["width"], Slide["height"])
+
+	def amend_postprocessor(self, chapter: Chapter):
+		"""
+		Вносит изменения в главу после дополнения её контентом. Запускается независимо от процесса дополнения.
+		
+		Переопределите данный метод для обработки.
+
+		:param chapter: Данные главы.
+		:type chapter: Chapter
+		"""
+
+		if not self._Settings.custom["add_moderation_status"]: chapter.remove_extra_data("moderated")
 
 	def collect(self, period: int | None = None, filters: str | None = None, pages: int | None = None) -> list[str]:
 		"""
