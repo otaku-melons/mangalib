@@ -317,11 +317,7 @@ class Parser(MangaParser):
 		"""
 		
 		URL = f"https://{self.__API}/api/manga/{self.__TitleSlug}?fields[]=eng_name&fields[]=otherNames&fields[]=summary&fields[]=releaseDate&fields[]=type_id&fields[]=caution&fields[]=genres&fields[]=tags&fields[]=franchise&fields[]=authors&fields[]=manga_status_id&fields[]=status_id"
-		Headers = {
-			"Authorization": self._Settings.custom["token"],
-			"Referer": f"https://{self._Manifest.site}/"
-		}
-		Response = self._Requestor.get(URL, headers = Headers)
+		Response = self._Requestor.get(URL)
 
 		if Response.status_code == 200:
 			Response = Response.json["data"]
@@ -472,6 +468,8 @@ class Parser(MangaParser):
 
 	def parse(self):
 		"""Получает основные данные тайтла."""
+
+		self._Requestor.config.add_header("Site-Id", str(self.__Sites[self._Manifest.site]))
 
 		if self._Title.id and self._Title.slug: self.__TitleSlug = f"{self._Title.id}--{self._Title.slug}"
 		else: self.__TitleSlug = self._Title.slug
