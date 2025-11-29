@@ -3,6 +3,7 @@ from Source.Core.Base.Parsers.MangaParser import MangaParser
 from Source.Core.Base.Formats.BaseFormat import Statuses
 
 from dublib.Methods.Data import RemoveRecurringSubstrings, Zerotify
+from dublib.Engine.Bus import ExecutionStatus
 from dublib.WebRequestor import WebRequestor
 
 from datetime import datetime
@@ -395,6 +396,26 @@ class Parser(MangaParser):
 		"""
 
 		if not self._Settings.custom["add_moderation_status"]: chapter.remove_extra_data("moderated")
+
+	def get_slug(self, data: str) -> ExecutionStatus:
+		"""
+		Получает алиас тайтла из переданной строки. Может использоваться для обработки тайтлов по ссылкам.
+
+		:param data: Строка, из которой требуется получить алиас.
+		:type data: str
+		:return: Контейнер ответа. Значение должно содержать строку-алиас или `None`, если получить алиас не удалось.
+		В данные статуса также помещается логический ключ _implemented_, говорящий об определении метода в парсере. Отсутствие ключа интерпретируется как наличие имплементации.
+		:rtype: ExecutionStatus
+		"""
+
+		Status = ExecutionStatus()
+		Status["implemented"] = True
+		Status.value = data
+
+		DataParts = data.split("--")
+		if DataParts[0].isdigit(): Status.value = "--".join(DataParts[1:])
+
+		return Status
 
 	def collect(self, period: int | None = None, filters: str | None = None, pages: int | None = None) -> list[str]:
 		"""
