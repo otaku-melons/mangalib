@@ -3,5 +3,5 @@
 	"site": "mangalib.me",
 	"content_type": "manga",
 	"version": "$last_git_tag",
-	"melon_required_version": "0.1.0"
+	"melon_required_version": ">1.0.0-rc.1"
 }

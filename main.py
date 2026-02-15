@@ -126,7 +126,7 @@ class Parser(MangaParser):
 					if BranchID == None: BranchID = int(str(self._Title.id) + "0")
 					if BranchID not in Branches.keys(): Branches[BranchID] = Branch(BranchID)
 
-					ChapterObject = Chapter(self._SystemObjects)
+					ChapterObject = Chapter(self._SystemObjects, self._Title)
 					ChapterObject.set_id(BranchData["id"])
 					ChapterObject.set_volume(CurrentChapterData["volume"])
 					ChapterObject.set_number(CurrentChapterData["number"])
@@ -378,24 +378,15 @@ class Parser(MangaParser):
 	def amend(self, branch: Branch, chapter: Chapter):
 		"""
 		Дополняет главу дайными о слайдах.
-			branch – данные ветви;\n
-			chapter – данные главы.
-		"""
 
-		Slides = self.__GetSlides(branch.id, chapter)
-		for Slide in Slides: chapter.add_slide(Slide["link"], Slide["width"], Slide["height"])
-
-	def amend_postprocessor(self, chapter: Chapter):
-		"""
-		Вносит изменения в главу после дополнения её контентом. Запускается независимо от процесса дополнения.
-		
-		Переопределите данный метод для обработки.
-
+		:param branch: Данные ветви.
+		:type branch: Branch
 		:param chapter: Данные главы.
 		:type chapter: Chapter
 		"""
 
-		if not self._Settings.custom["add_moderation_status"]: chapter.remove_extra_data("moderated")
+		Slides = self.__GetSlides(branch.id, chapter)
+		for Slide in Slides: chapter.add_slide(Slide["link"], Slide["width"], Slide["height"])
 
 	def get_slug(self, data: str) -> ExecutionStatus:
 		"""
@@ -520,3 +511,10 @@ class Parser(MangaParser):
 			self._Title.set_franchises(self.__GetFranchises(Data))
 
 			self.__GetBranches()
+
+	def postprocessor(self):
+		"""Вносит изменения в тайтл непосредственно перед сохранением."""
+
+		for CurrentBranch in self._Title.branches:
+			for CurrentChapter in CurrentBranch.chapters:
+				if not self._Settings.custom["add_moderation_status"]: CurrentChapter.remove_extra_data("moderated")
