@@ -1,5 +1,6 @@
 from Source.Core.Base.Formats.Manga import Branch, Chapter, Types
 from Source.Core.Base.Parsers.MangaParser import MangaParser
+from Source.Core.Base.Formats.Manga.Elements import Slide
 from Source.Core.Base.Formats.BaseFormat import Statuses
 
 from dublib.Methods.Data import RemoveRecurringSubstrings, Zerotify
@@ -267,7 +268,7 @@ class Parser(MangaParser):
 		Slides = list()
 
 		if "moderated" in chapter.to_dict().keys() and not chapter["moderated"]:
-			self._Portals.chapter_skipped(self._Title, chapter, comment = "Not moderated.")
+			self._Portals.chapter_skipped(chapter, comment = "Not moderated.")
 			return Slides
 		
 		Server = self.__GetImagesServers(self._Settings.custom["server"])[0]
@@ -279,14 +280,11 @@ class Parser(MangaParser):
 			Data = Response.json["data"].setdefault("pages", tuple())
 			sleep(self._Settings.common.delay)
 
-			for SlideIndex in range(len(Data)):
-				Buffer = {
-					"index": SlideIndex + 1,
-					"link": Server + Data[SlideIndex]["url"].replace(" ", "%20"),
-					"width": Data[SlideIndex]["width"],
-					"height": Data[SlideIndex]["height"]
-				}
-				Slides.append(Buffer)
+			for SlideData in Data:
+				SlideObject = Slide(self._SystemObjects, chapter)
+				SlideObject.set_link(Server + SlideData["url"].replace(" ", "%20"))
+				SlideObject.set_resolution(SlideData["width"], SlideData["height"])
+				Slides.append(SlideObject)
 
 		else: self._Portals.request_error(Response, "Unable to request chapter content.", exception = False)
 
@@ -385,8 +383,7 @@ class Parser(MangaParser):
 		:type chapter: Chapter
 		"""
 
-		Slides = self.__GetSlides(branch.id, chapter)
-		for Slide in Slides: chapter.add_slide(Slide["link"], Slide["width"], Slide["height"])
+		chapter.set_slides(self.__GetSlides(branch.id, chapter))
 
 	def get_slug(self, data: str) -> ExecutionStatus:
 		"""
@@ -408,12 +405,18 @@ class Parser(MangaParser):
 
 		return Status
 
-	def collect(self, period: int | None = None, filters: str | None = None, pages: int | None = None) -> list[str]:
+	def collect(self, period: int | None = None, filters: str | None = None, pages: int | None = None) -> tuple[str]:
 		"""
-		Собирает список тайтлов по заданным параметрам.
-			period – количество часов до текущего момента, составляющее период получения данных;\n
-			filters – строка, описывающая фильтрацию (подробнее в README.md);\n
-			pages – количество запрашиваемых страниц каталога.
+		Собирает список алиасов тайтлов по заданным параметрам.
+
+		:param period: Количество часов до текущего момента, составляющее период получения данных.
+		:type period: int | None
+		:param filters: Строка, описывающая фильтрацию (подробнее в README.md парсера).
+		:type filters: str | None
+		:param pages: Количество запрашиваемых страниц каталога.
+		:type pages: int | None
+		:return: Набор собранных алиасов.
+		:rtype: tuple[str]
 		"""
 
 		Updates = list()
@@ -423,7 +426,7 @@ class Parser(MangaParser):
 		Headers = {
 			"Site-Id": str(self.__GetSiteID())
 		}
-		CurrentDate = datetime.utcnow()
+		CurrentDate = datetime.now()
 
 		while not IsUpdatePeriodOut:
 			Response = self._Requestor.get(f"https://{self.__API}/api/latest-updates?page={Page}", headers = Headers)
@@ -453,10 +456,14 @@ class Parser(MangaParser):
 
 		return Updates
 
-	def image(self, url: str) -> str | None:
+	def image(self, url: str) -> ExecutionStatus:
 		"""
-		Скачивает изображение с сайта во временный каталог парсера и возвращает имя файла.
-			url – ссылка на изображение.
+		Скачивает изображение по ссылке и сохраняет во временный каталог парсера.
+
+		:param url: Ссылка на изображение.
+		:type url: str
+		:return: Статус выполнение, значение в котором должно содержать имя файла.
+		:rtype: ExecutionStatus
 		"""
 
 		Result = self._ImagesDownloader.temp_image(url)
