@@ -1,1 +1,1 @@
-from Parsers.mangalib.main import Parser
+from Parsers.mangalib.main import SourceOperator

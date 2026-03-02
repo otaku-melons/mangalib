@@ -1,7 +1,8 @@
 {
 	"object": "parser",
 	"site": "hentailib.me",
-	"content_type": "manga",
-	"version": "$from_parser:mangalib",
-	"melon_required_version": "0.1.0"
+	"content_types": ["manga"],
+	"parent": "mangalib",
+	"version": "$from_parent",
+	"melon_required_version": "$from_parent"
 }

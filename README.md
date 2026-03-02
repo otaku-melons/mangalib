@@ -1,5 +1,10 @@
 # mangalib
-**mangalib** – это модуль системы управления парсерами [Melon](https://github.com/Otaku-Melons/Melon), включающий поддержку источников: [MangaLib](https://test-front.mangalib.me/), [HentaiLib](https://hentailib.me/), [SlashLib](https://slashlib.me/).
+**mangalib** – это модуль системы управления парсерами [Melon](https://github.com/otaku-melons/Melon), включающий поддержку источников: [MangaLib](https://mangalib.me), [HentaiLib](https://hentailib.me), [SlashLib](https://slashlib.me).
+
+Для установки модулей поддержки [HentaiLib](https://hentailib.me) и [SlashLib](https://slashlib.me) необходим запуск дополнительного установочного Bash-скрипта.
+```Bash
+melon install -s
+```
 
 ## Коллекция
 Таблица поддерживаемых ключей для `melon collect`.
