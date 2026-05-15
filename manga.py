@@ -274,7 +274,7 @@ class Parser(MangaParser):
 		else: self.__TitleSlug = self._Title.slug
 
 		Data = self.__GetTitleData()
-		self._SystemObjects.manager.get_parser_settings()
+		self._SystemObjects.controller.get_parser_settings()
 
 		if Data:
 			self._Title.set_site(self.__CheckCorrectDomain(Data))
