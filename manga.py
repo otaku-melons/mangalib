@@ -22,7 +22,6 @@ class Parser(MangaParser):
 		"""Метод, выполняющийся после инициализации объекта."""
 
 		self.__TitleSlug = None
-		self.__API = self._SourceOperator.api_domain
 		self._SourceOperator: "SourceOperator"
 
 	#==========================================================================================#
@@ -69,7 +68,7 @@ class Parser(MangaParser):
 		"""Получает содержимое тайтла."""
 
 		Branches: dict[int, Branch] = dict()
-		Response = self._Requestor.get(f"https://{self.__API}/api/manga/{self.__TitleSlug}/chapters")
+		Response = self._Requestor.get(f"https://{self._SourceOperator.api_domain}/api/manga/{self.__TitleSlug}/chapters")
 		
 		if Response.status_code == 200:
 			Data = Response.json["data"]
@@ -170,7 +169,7 @@ class Parser(MangaParser):
 		
 		Server = self._SourceOperator.get_images_servers(self._Settings.custom["server"])[0]
 		Branch = "" if branch_id == str(self._Title.id) + "0" else f"&branch_id={branch_id}"
-		URL = f"https://{self.__API}/api/manga/{self.__TitleSlug}/chapter?number={chapter.number}&volume={chapter.volume}{Branch}"
+		URL = f"https://{self._SourceOperator.api_domain}/api/manga/{self.__TitleSlug}/chapter?number={chapter.number}&volume={chapter.volume}{Branch}"
 		Response = self._Requestor.get(URL)
 		
 		if Response.status_code == 200:
@@ -212,7 +211,7 @@ class Parser(MangaParser):
 			slug – алиас.
 		"""
 		
-		URL = f"https://{self.__API}/api/manga/{self.__TitleSlug}?fields[]=eng_name&fields[]=otherNames&fields[]=summary&fields[]=releaseDate&fields[]=type_id&fields[]=caution&fields[]=genres&fields[]=tags&fields[]=franchise&fields[]=authors&fields[]=manga_status_id&fields[]=status_id"
+		URL = f"https://{self._SourceOperator.api_domain}/api/manga/{self.__TitleSlug}?fields[]=eng_name&fields[]=otherNames&fields[]=summary&fields[]=releaseDate&fields[]=type_id&fields[]=caution&fields[]=genres&fields[]=tags&fields[]=franchise&fields[]=authors&fields[]=manga_status_id&fields[]=status_id"
 		Response = self._Requestor.get(URL)
 
 		if Response.status_code == 200:
