@@ -6,7 +6,9 @@ from Source.Core.Base.Formats.Manga.Elements import Slide
 from dublib.Methods.Data import Zerotify
 
 from typing import TYPE_CHECKING
-from time import sleep
+from time import sleep, time
+
+import jwt
 
 if TYPE_CHECKING:
 	from .main import SourceOperator
@@ -255,6 +257,22 @@ class Parser(MangaParser):
 
 		return Type
 
+	def __IsTokenExpired(self, token: str) -> bool:
+		"""
+		Проверяет, устарел ли JSON Web Token.
+
+		:param token: JWT-токен.
+		:type token: str
+		:return: Возвращает `True`, если токен устарел.
+		:rtype: bool
+		:raises jwt.exceptions.DecodeError: Неверный формат токена.
+		"""
+
+		if token.lower().startswith("bearer "): token = token[7:]
+		TokenData = jwt.decode(token, options = {"verify_signature": False})
+
+		return TokenData["exp"] < time()
+
 	#==========================================================================================#
 	# >>>>> ПУБЛИЧНЫЕ МЕТОДЫ <<<<< #
 	#==========================================================================================#
@@ -274,7 +292,10 @@ class Parser(MangaParser):
 	def parse(self):
 		"""Получает основные данные тайтла."""
 
-		self._Requestor.config.add_header("Site-Id", str(self._SourceOperator.get_site_id()))
+		SiteID = self._SourceOperator.get_site_id()
+		if self._Settings.custom["token"] and self.__IsTokenExpired(self._Settings.custom["token"]): self._Portals.authorization_required("Token expired.")
+		if SiteID in (2, 4) and not self._Settings.custom["token"]: self._Portals.authorization_required(f"Domain \"{self._Title.site}\" requires authorization.")
+		self._Requestor.config.add_header("Site-Id", str(SiteID))
 
 		if self._Title.id and self._Title.slug: self.__TitleSlug = f"{self._Title.id}--{self._Title.slug}"
 		else: self.__TitleSlug = self._Title.slug

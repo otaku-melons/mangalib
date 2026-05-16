@@ -4,9 +4,7 @@ from dublib.Engine.Bus import ExecutionStatus
 from dublib.WebRequestor import WebRequestor
 
 from datetime import datetime
-from time import sleep, time
-
-import jwt
+from time import sleep
 
 class SourceOperator(BaseSourceOperator):
 	"""Оператор источника."""
@@ -37,22 +35,6 @@ class SourceOperator(BaseSourceOperator):
 
 		return False
 	
-	def __IsTokenExpired(self, token: str) -> bool:
-		"""
-		Проверяет, устарел ли JSON Web Token.
-
-		:param token: JWT-токен.
-		:type token: str
-		:return: Возвращает `True`, если токен устарел.
-		:rtype: bool
-		:raises jwt.exceptions.DecodeError: Неверный формат токена.
-		"""
-
-		if token.lower().startswith("bearer "): token = token[7:]
-		TokenData = jwt.decode(token, options = {"verify_signature": False})
-
-		return TokenData["exp"] < time()
-
 	def __ParseSlideLink(self, link: str, servers: list[str]) -> tuple[str]:
 		"""
 		Парсит ссылку на слайд.
@@ -89,9 +71,7 @@ class SourceOperator(BaseSourceOperator):
 		"""Инициализирует модуль WEB-запросов."""
 
 		WebRequestorObject = super()._InitializeRequestor()
-		if self._Settings.custom["token"]:
-			if self.__IsTokenExpired(self._Settings.custom["token"]): self._Portals.authorization_required("Token expired.")
-			WebRequestorObject.config.add_header("Authorization", self._Settings.custom["token"])
+		if self._Settings.custom["token"]: WebRequestorObject.config.add_header("Authorization", self._Settings.custom["token"])
 
 		return WebRequestorObject
 
