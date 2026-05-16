@@ -3,7 +3,6 @@ from Source.Core.Base.SourceOperator import BaseSourceOperator
 from dublib.Engine.Bus import ExecutionStatus
 from dublib.WebRequestor import WebRequestor
 
-from urllib.parse import urlparse
 from datetime import datetime
 from time import sleep
 

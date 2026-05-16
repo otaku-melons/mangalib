@@ -3,7 +3,7 @@ from Source.Core.Base.Formats.BaseFormat import Cover, Statuses
 from Source.Core.Base.Parsers.MangaParser import MangaParser
 from Source.Core.Base.Formats.Manga.Elements import Slide
 
-from dublib.Methods.Data import RemoveRecurringSubstrings, Zerotify
+from dublib.Methods.Data import Zerotify
 
 from typing import TYPE_CHECKING
 from time import sleep
@@ -102,15 +102,22 @@ class Parser(MangaParser):
 
 	def __GetDescription(self, data: dict) -> str | None:
 		"""
-		Получает описание.
-			data – словарь данных тайтла.
+		Возвращает описание тайтла.
+
+		:param data: Словарь данных тайтла.
+		:type data: dict
+		:return: Описание.
+		:rtype: str | None
 		"""
-
+		
 		Description = None
-		if "summary" in data.keys(): Description = RemoveRecurringSubstrings(data["summary"], "\n").strip().replace(" \n", "\n")
-		Description = Zerotify(Description)
+		DescriptionContent = None
 
-		return Description
+		if "summary" in data.keys(): DescriptionContent = data["summary"]["content"][0]
+		DescriptionContent = tuple(Element["text"].strip() for Element in DescriptionContent["content"])
+		Description = "\n".join(DescriptionContent)
+
+		return Zerotify(Description)
 
 	def __GetFranchises(self, data: dict) -> list[str]:
 		"""
