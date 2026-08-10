@@ -1,16 +1,16 @@
 # mangalib
-**mangalib** – это модуль системы управления парсерами [Melon](https://github.com/otaku-melons/Melon), включающий поддержку источников: [MangaLib](https://mangalib.me), [HentaiLib](https://hentailib.me), [SlashLib](https://slashlib.me).
+**mangalib** – это модуль системы управления парсерами [Melon](https://github.com/otaku-melons/melon), включающий поддержку источников: [MangaLib](https://mangalib.me), [HentaiLib](https://hentailib.me), [SlashLib](https://slashlib.me).
 
-Для установки модулей поддержки [HentaiLib](https://hentailib.me) и [SlashLib](https://slashlib.me) необходим запуск дополнительного установочного Bash-скрипта.
+Для парсинга [HentaiLib](https://hentailib.me) и [SlashLib](https://slashlib.me) необходим запуск команд с поддержкой перенаправления на зеркало.
 ```Bash
-melon install -s
+melon parse 123-some-title --use mangalib --mirror hentailib.me
 ```
 
 ## Коллекция
 Таблица поддерживаемых ключей для `melon collect`.
 | Ключ | Поддержка | Описание |
 |---|---|---|
-| **&#x2011;&#x2011;period** | ✅ | Период, за который нужно получить обновления (в часах). |
+| **&#x2011;&#x2011;period** | ✅ | Период, за который нужно получить обновления (в часах). По умолчанию 24 часа. |
 | **&#x2011;&#x2011;filters** | ❌ | Строка, содержащая параметры фильтрации контента. |
 | **&#x2011;&#x2011;pages** | ✅ | Количество страниц каталога, с которых нужно получить данные. |
 
@@ -33,3 +33,8 @@ ___
 "add_moderation_status": false
 ```
 Указывает, необходимо ли добавлять статус модерации главы в данные о ней.
+___
+```JSON
+"add_free_publication_date": false
+```
+Указывает, необходимо ли добавлять данные о дате и времени выхода платной главы в бесплатный доступ.

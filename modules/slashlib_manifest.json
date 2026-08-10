@@ -1,8 +1,0 @@
-{
-	"object": "parser",
-	"site": "slashlib.me",
-	"content_types": ["manga"],
-	"parent": "mangalib",
-	"version": "$from_parent",
-	"melon_required_version": "$from_parent"
-}

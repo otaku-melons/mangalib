@@ -1,8 +1,0 @@
-{
-	"object": "parser",
-	"site": "hentailib.me",
-	"content_types": ["manga"],
-	"parent": "mangalib",
-	"version": "$from_parent",
-	"melon_required_version": "$from_parent"
-}
