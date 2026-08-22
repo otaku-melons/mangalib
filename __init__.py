@@ -1,11 +1,9 @@
 from dataclasses import dataclass
 from datetime import datetime
-from time import sleep, time
 from typing import TYPE_CHECKING, Sequence
 
-import jwt
-
 from dublib.web_requestor import WebRequestor
+from dublib.web_requestor.config.authorization import Bearer
 
 from melon.core.base.source_operator import BaseSourceOperator
 
@@ -72,22 +70,6 @@ class SourceOperator(BaseSourceOperator):
 				return True
 
 		return False
-
-	def __IsTokenExpired(self, token: str) -> bool:
-		"""
-		Проверяет, устарел ли JSON Web Token.
-
-		:param token: JWT-токен.
-		:type token: str
-		:return: Возвращает `True`, если токен устарел.
-		:rtype: bool
-		:raises jwt.exceptions.DecodeError: Неверный формат токена.
-		"""
-
-		if token.lower().startswith("bearer "): token = token[7:]
-		TokenData = jwt.decode(token, options = {"verify_signature": False})
-
-		return TokenData["exp"] < time()
 
 	def __SplitSlideLink(self, uri: str, servers: Sequence[str]) -> SlideURI:
 		"""
@@ -174,7 +156,6 @@ class SourceOperator(BaseSourceOperator):
 			if not IsUpdatePeriodOut:
 				self.portals.collect_progress_by_page(Page)
 				Page += 1
-				sleep(self._Settings.common.delay)
 
 			if Page == pages: break
 		
@@ -191,11 +172,24 @@ class SourceOperator(BaseSourceOperator):
 		WebRequestorObject = super()._InitializeRequestor()
 		WebRequestorObject.config.headers.add("site-id", 1)
 
-		if self.settings.custom["token"]:
-			if self.__IsTokenExpired(self.settings.custom["token"]): self.portals.authorization_required("Token expired.")
-			WebRequestorObject.config.headers.add("Authorization", self.settings.custom["token"])
-
 		return WebRequestorObject
+
+	def _IsTitleExists(self, slug: str) -> bool | None:
+		"""
+		Проверяет, существует ли тайтл на сервере.
+
+		:param slug: Алиас тайтла.
+		:type slug: str
+		:return: Возвращает статус существования файла на сервере или `None` при невозможности проверки.
+		:rtype: bool | None
+		"""
+
+		Response = self.requestor.get(f"https://{self.api_domain}/api/manga/{slug}")
+		
+		if Response.ok: return True
+		if Response.status_code == 404: return False
+
+		return None
 
 	def _ParseSlugFromString(self, string: str) -> str | None:
 		"""
@@ -242,6 +236,20 @@ class SourceOperator(BaseSourceOperator):
 		else:
 			self.requestor.config.headers.remove("site-id")
 
+	def _SetAuthorizationMethod(self):
+		"""
+		Выполняется после `_InitializeRequestor()` и обёрнут для отлова исключений `TokenExpired`.
+
+		Используется для установки авторизации на основе заголовка _Authorization_.
+		"""
+
+		Token: str | None = self.settings.custom.get("token")
+		if not Token: return
+
+		Authorizator = Bearer()
+		Authorizator.set_jwt(Token)
+		self.requestor.config.headers.authorization.set_authorization_method(Authorizator)
+
 	def _TempImage(self, url: str, force_mode: bool = False) -> "ImageDownloadingResult":
 		"""
 		Скачивает изображение по ссылке и сохраняет во временный каталог парсера.
@@ -264,16 +272,11 @@ class SourceOperator(BaseSourceOperator):
 			if self.__IsSlideLink(url, Servers):
 				SplittedURI = self.__SplitSlideLink(url, Servers)
 				Servers.remove(SplittedURI.server)
-				sleep(self._Settings.common.delay)
 
 				for Server in Servers:
 					Link = Server + SplittedURI.uri
 					Result = self._ImagesDownloader.temp_image(Link, force_mode = force_mode)
-
-					if Result:
-						break
-					elif Server != Servers[-1]:
-						sleep(self._Settings.common.delay)
+					if Result: break
 		
 				return Result
 
@@ -303,7 +306,6 @@ class SourceOperator(BaseSourceOperator):
 
 		if Response.ok and Response.json:
 			Data = Response.json["data"]["imageServers"]
-			sleep(self._Settings.common.delay)
 
 			for ServerData in Data:
 				if server_id:

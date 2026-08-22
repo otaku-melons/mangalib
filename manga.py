@@ -1,4 +1,3 @@
-from time import sleep
 from typing import TYPE_CHECKING, Literal, cast
 
 from dublib.functions.data import Zerotify
@@ -63,7 +62,6 @@ class Parser(BaseMangaParser):
 		
 		if Response.ok and Response.json:
 			Data = Response.json["data"]
-			sleep(self.settings.common.delay)
 
 			for CurrentChapterData in Data:
 
@@ -174,7 +172,6 @@ class Parser(BaseMangaParser):
 		
 		if Response.ok and Response.json:
 			Data = Response.json["data"].setdefault("pages", ())
-			sleep(self.settings.common.delay)
 
 			for SlideData in Data:
 				ImageBuffer = ImageData(Server + SlideData["url"].replace(" ", "%20"))
@@ -236,7 +233,6 @@ class Parser(BaseMangaParser):
 		Response = self.requestor.get(URL)
 
 		if Response.ok and Response.json:
-			sleep(self.settings.common.delay)
 			return Response.json["data"]
 
 		elif Response.status_code == 451: self.portals.request_error(Response, "Account banned.")
@@ -274,7 +270,7 @@ class Parser(BaseMangaParser):
 	# >>>>> ПЕРЕОПРЕДЕЛЯЕМЫЕ МЕТОДЫ <<<<< #
 	#==========================================================================================#
 
-	def _Amend(self, branch: BaseBranch, chapter: Chapter):
+	def _Amend(self, branch: BaseBranch, chapter: Chapter) -> str | None:
 		"""
 		Дополняет главу дайными о контенте.
 
@@ -282,6 +278,8 @@ class Parser(BaseMangaParser):
 		:type branch: BaseBranch
 		:param chapter: Глава.
 		:type chapter: BaseChapter
+		:return: Дополнительное необязательное сообщение о дополнении.
+		:rtype: str | None
 		"""
 
 		chapter.set_slides(self.__GetSlides(branch.id, chapter))
