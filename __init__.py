@@ -7,6 +7,8 @@ from dublib.web_requestor.config.authorization import Bearer
 
 from melon.core.base.source_operator import BaseSourceOperator
 
+from .settings import CustomSettingsModel
+
 if TYPE_CHECKING:
 	from melon.core.base.parsers.components.images_downloader import (
 		ImageDownloadingResult,
@@ -27,7 +29,7 @@ class SlideURI:
 # >>>>> ОСНОВНОЙ КЛАСС <<<<< #
 #==========================================================================================#
 
-class SourceOperator(BaseSourceOperator):
+class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 	"""Оператор источника."""
 
 	#==========================================================================================#
@@ -229,12 +231,16 @@ class SourceOperator(BaseSourceOperator):
 
 		if self.__SiteID:
 
-			if self.__SiteID in (2, 4) and not self.settings.custom["token"]:
+			if self.__SiteID in (2, 4) and not self.settings.custom.token:
 				self.portals.authorization_required(f"Domain \"{mirror}\" requires authorization.")
 
 			self.requestor.config.headers.set("site-id", self.__SiteID)
 		else:
 			self.requestor.config.headers.remove("site-id")
+
+	def _ReturnCustomSettingsModel(self) -> type[CustomSettingsModel]:
+
+		return CustomSettingsModel
 
 	def _SetAuthorizationMethod(self):
 		"""
@@ -243,7 +249,7 @@ class SourceOperator(BaseSourceOperator):
 		Используется для установки авторизации на основе заголовка _Authorization_.
 		"""
 
-		Token: str | None = self.settings.custom.get("token")
+		Token: str | None = self.settings.custom.token
 		if not Token: return
 
 		Authorizator = Bearer()

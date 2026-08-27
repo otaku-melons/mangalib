@@ -10,8 +10,9 @@ if TYPE_CHECKING:
 	from melon.core.base.formats.manga import Manga
 
 	from . import SourceOperator
+	from .settings import CustomSettingsModel as CustomSettingsModel
 
-class Parser(BaseMangaParser):
+class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 	"""Парсер."""
 	#==========================================================================================#
 	# >>>>> ПРИВАТНЫЕ МЕТОДЫ <<<<< #
@@ -80,7 +81,7 @@ class Parser(BaseMangaParser):
 					ChapterObject.set_workers([sub["name"] for sub in BranchData["teams"]])
 					ChapterObject.extra_data.set("moderated", False if "moderation" in BranchData else True)
 
-					if self.settings.custom["add_free_publication_date"] and ChapterObject.is_paid:
+					if self.settings.custom.add_free_publication_date and ChapterObject.is_paid:
 						ChapterObject.extra_data.set("free-publication-date", BranchData["restricted_view"]["expired_at"])
 
 					Branches[BranchID].add_chapter(ChapterObject)
@@ -165,7 +166,7 @@ class Parser(BaseMangaParser):
 			self.portals.chapter_skipped(chapter, comment = "Not moderated.")
 			return Slides
 		
-		Server = SourceOperatorObject.get_images_servers(self.settings.custom["server"])[0]
+		Server = SourceOperatorObject.get_images_servers(self.settings.custom.server)[0]
 		Branch = "" if branch_id == str(Title.id) + "0" else f"&branch_id={branch_id}"
 		URL = f"https://{SourceOperatorObject.api_domain}/api/manga/{Title.slug}/chapter?number={chapter.number}&volume={chapter.volume}{Branch}"
 		Response = self.requestor.get(URL)
@@ -324,5 +325,5 @@ class Parser(BaseMangaParser):
 
 		for CurrentBranch in Title.branches:
 			for CurrentChapter in CurrentBranch.chapters:
-				if not self.settings.custom["add_moderation_status"]:
+				if not self.settings.custom.add_moderation_status:
 					CurrentChapter.extra_data.remove("moderated")
