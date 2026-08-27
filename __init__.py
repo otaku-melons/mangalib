@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Sequence
+from typing import Sequence
 
 from dublib.web_requestor import WebRequestor
 from dublib.web_requestor.config.authorization import Bearer
@@ -8,11 +8,6 @@ from dublib.web_requestor.config.authorization import Bearer
 from melon.core.base.source_operator import BaseSourceOperator
 
 from .settings import CustomSettingsModel
-
-if TYPE_CHECKING:
-	from melon.core.base.parsers.components.images_downloader import (
-		ImageDownloadingResult,
-	)
 
 #==========================================================================================#
 # >>>>> ВСПОМОГАТЕЛЬНЫЕ СТРУКТУРЫ ДАННЫХ <<<<< #
@@ -54,44 +49,6 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 	#==========================================================================================#
 	# >>>>> ПРИВАТНЫЕ МЕТОДЫ <<<<< #
 	#==========================================================================================#
-
-	def __IsSlideLink(self, link: str, domains: Sequence[str]) -> bool:
-		"""
-		Проверяет, содержится ли в ссылке домен сервера.
-
-		:param link: Ссылка.
-		:type link: str
-		:param servers: Последовательность доменов.
-		:type servers: Sequence[str]
-		:return: Возвращает `True`, если в ссылке присутствует домен сервера.
-		:rtype: bool
-		"""
-
-		for Domain in domains:
-			if Domain in link:
-				return True
-
-		return False
-
-	def __SplitSlideLink(self, uri: str, servers: Sequence[str]) -> SlideURI:
-		"""
-		Разбивает общий URI слайда отдельно на домен сервера и сам URI.
-
-		:param uri: Общий URI слайда.
-		:type uri: str
-		:param servers: Последовательность сервером хранения изображений.
-		:type servers: Sequence[str]
-		:raises ValueError: Неверный формат URI слайда.
-		:return: Разделённый URI слайда.
-		:rtype: SlideURI
-		"""
-
-		for Domain in servers:
-			if Domain in uri:
-				URI = uri.replace(Domain, "")
-				return SlideURI(Domain, URI)
-
-		raise ValueError("Incorrect slide URI format.")
 
 	def __StringToDate(self, date_str: str) -> datetime:
 		"""
@@ -255,38 +212,6 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 		Authorizator = Bearer()
 		Authorizator.set_jwt(Token)
 		self.requestor.config.headers.authorization.set_authorization_method(Authorizator)
-
-	def _TempImage(self, url: str, force_mode: bool = False) -> "ImageDownloadingResult":
-		"""
-		Скачивает изображение по ссылке и сохраняет во временный каталог парсера.
-
-		:param url: Ссылка на изображение.
-		:type url: str
-		:param force_mode: Переключает режим перезаписи существующих изображений.
-		:type force_mode: bool
-		:return: Результат скачивания изображения.
-		:rtype: ImageDownloadingResult
-		"""
-
-		Result = self._ImagesDownloader.temp_image(url, force_mode = force_mode)
-		
-		if not Result:
-			Servers: list[str] = self.get_images_servers(all_sites = True)
-			ServersCount: int = len(Servers)
-			self.portals.printer.emit(f"Unable download image. Trying {ServersCount} servers switching.")
-
-			if self.__IsSlideLink(url, Servers):
-				SplittedURI = self.__SplitSlideLink(url, Servers)
-				Servers.remove(SplittedURI.server)
-
-				for Server in Servers:
-					Link = Server + SplittedURI.uri
-					Result = self._ImagesDownloader.temp_image(Link, force_mode = force_mode)
-					if Result: break
-		
-				return Result
-
-		return Result
 
 	#==========================================================================================#
 	# >>>>> ПУБЛИЧНЫЕ МЕТОДЫ <<<<< #
