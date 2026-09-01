@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Literal, cast
 
-from dublib.functions.data import Zerotify
+from dublib.functions.data import zerotify
 
 from melon.core.base.formats.base_format import ImageData, Statuses
 from melon.core.base.formats.manga import BaseBranch, Chapter, Types
@@ -122,7 +122,7 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 
 		Description = "\n".join(DescriptionLines)
 
-		return Zerotify(Description)
+		return zerotify(Description)
 
 	def __GetClassificators(self, data: dict, classificators_type: Literal["franchise", "genres", "tags"]) -> list[str]:
 		"""
@@ -284,6 +284,8 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 		"""
 
 		chapter.set_slides(self.__GetSlides(branch.id, chapter))
+
+		return None
 
 	def _Parse(self):
 		"""Получает основные данные тайтла."""
