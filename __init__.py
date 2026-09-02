@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Sequence
+from typing import Sequence, override
 
 from dublib.web_requestor import WebRequestor
 from dublib.web_requestor.config.authorization import Bearer
@@ -68,7 +68,23 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 	# >>>>> ПЕРЕОПРЕДЕЛЯЕМЫЕ МЕТОДЫ <<<<< #
 	#==========================================================================================#
 
-	def _CollectSlugs(self, period: int | None = None, filters: str | None = None, pages: int | None = None) -> Sequence[str]:
+	@override
+	def _authorize(self):
+		"""
+		Выполняется после `_InitializeRequestor()` и обёрнут для отлова исключений `TokenExpired`.
+
+		Используется для установки авторизации на основе заголовка _Authorization_.
+		"""
+
+		Token: str | None = self.settings.custom.token
+		if not Token: return
+
+		Authorizator = Bearer()
+		Authorizator.set_jwt(Token)
+		self.requestor.config.headers.authorization.set_authorization_method(Authorizator)
+
+	@override
+	def _collect_slugs(self, period: int | None = None, filters: str | None = None, pages: int | None = None) -> Sequence[str]:
 		"""
 		Собирает список алиасов тайтлов по заданным параметрам.
 
@@ -120,7 +136,19 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 		
 		return Updates
 
-	def _InitializeRequestor(self) -> WebRequestor:
+	@override
+	def _export_custom_settings_model(self) -> type[CustomSettingsModel]:
+		"""
+		Экспортирует модель кастомных настроек парсера. Модель должна быть унаследована от `CustomSettingsModel`.
+
+		:return: Модель кастомных настроек парсера.
+		:rtype: type[CustomSettingsModel]
+		"""
+
+		return CustomSettingsModel
+
+	@override
+	def _initialize_requestor(self) -> WebRequestor:
 		"""
 		Инициализирует модуль WEB-запросов.
 
@@ -128,12 +156,13 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 		:rtype: WebRequestor
 		"""
 
-		WebRequestorObject = super()._InitializeRequestor()
+		WebRequestorObject = super()._initialize_requestor()
 		WebRequestorObject.config.headers.add("site-id", 1)
 
 		return WebRequestorObject
 
-	def _IsTitleExists(self, slug: str) -> bool | None:
+	@override
+	def _is_title_exists(self, slug: str) -> bool | None:
 		"""
 		Проверяет, существует ли тайтл на сервере.
 
@@ -150,7 +179,8 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 
 		return None
 
-	def _ParseSlugFromString(self, string: str) -> str | None:
+	@override
+	def _extract_slug_from_string(self, string: str) -> str | None:
 		"""
 		Парсит алиас тайтла из переданной строки. Может использоваться для обработки тайтлов по ссылкам.
 
@@ -165,7 +195,8 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 
 		return string
 
-	def _PostInitMethod(self):
+	@override
+	def _post_init(self):
 		"""Метод, выполняющийся после инициализации объекта."""
 
 		self.__Sites: dict[str, int] = {
@@ -176,7 +207,8 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 		}
 		self.__SiteID: int | None = self.get_site_id()
 
-	def _PostMirrorChanging(self, mirror: str | None):
+	@override
+	def _post_mirror_changing(self, mirror: str | None):
 		"""
 		Выполняется после изменения зеркала.
 
@@ -194,24 +226,6 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 			self.requestor.config.headers.set("site-id", self.__SiteID)
 		else:
 			self.requestor.config.headers.remove("site-id")
-
-	def _ReturnCustomSettingsModel(self) -> type[CustomSettingsModel]:
-
-		return CustomSettingsModel
-
-	def _SetAuthorizationMethod(self):
-		"""
-		Выполняется после `_InitializeRequestor()` и обёрнут для отлова исключений `TokenExpired`.
-
-		Используется для установки авторизации на основе заголовка _Authorization_.
-		"""
-
-		Token: str | None = self.settings.custom.token
-		if not Token: return
-
-		Authorizator = Bearer()
-		Authorizator.set_jwt(Token)
-		self.requestor.config.headers.authorization.set_authorization_method(Authorizator)
 
 	#==========================================================================================#
 	# >>>>> ПУБЛИЧНЫЕ МЕТОДЫ <<<<< #

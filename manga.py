@@ -1,13 +1,16 @@
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Literal, cast, override
 
 from dublib.functions.data import zerotify
 
-from melon.core.base.formats.base_format import ImageData, Statuses
-from melon.core.base.formats.manga import BaseBranch, Chapter, Types
-from melon.core.base.parsers.base_manga_parser import BaseMangaParser
+from melon.core.base.formats.base_format.branch import Branch
+from melon.core.base.formats.base_format.enums import Statuses
+from melon.core.base.formats.manga.chapter import Chapter
+from melon.core.base.formats.manga.enums import Types
+from melon.core.base.parsers.manga import BaseMangaParser
+from melon.core.base.structs.image import ImageData
 
 if TYPE_CHECKING:
-	from melon.core.base.formats.manga import Manga
+	from melon.core.base.formats.manga.controller import Manga
 
 	from . import SourceOperator
 	from .settings import CustomSettingsModel as CustomSettingsModel
@@ -58,8 +61,8 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 		SourceOperatorObject = cast("SourceOperator", self.source_operator)
 		Title = cast("Manga", self.title)
 
-		Branches: dict[int, BaseBranch] = {}
-		Response = self.requestor.get(f"https://{SourceOperatorObject.api_domain}/api/manga/{Title.slug}/chapters")
+		Branches: dict[int, Branch] = {}
+		Response = self.requestor.get(f"https://{SourceOperatorObject.api_domain}/api/manga/{Title.data.slug}/chapters")
 		
 		if Response.ok and Response.json:
 			Data = Response.json["data"]
@@ -68,10 +71,10 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 
 				for BranchData in CurrentChapterData["branches"]:
 					OriginalBranchID: int | None = BranchData.get("branch_id")
-					BranchID: int = OriginalBranchID or int(str(Title.id) + "0")
+					BranchID: int = OriginalBranchID or int(str(Title.data.id) + "0")
 
 					if BranchID not in Branches.keys():
-						Branches[BranchID] = BaseBranch(BranchID)
+						Branches[BranchID] = Branch(BranchID)
 
 					ChapterObject = Chapter(self, CurrentChapterData["id"])
 					ChapterObject.set_volume(CurrentChapterData["volume"])
@@ -88,7 +91,7 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 
 		else: self.portals.request_error(Response, "Unable to request chapter.", exception = False)
 
-		for CurrentBranch in Branches.values(): Title.add_branch(CurrentBranch)
+		for CurrentBranch in Branches.values(): Title.data.add_branch(CurrentBranch)
 
 	def __GetDescription(self, data: dict) -> str | None:
 		"""
@@ -167,8 +170,8 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 			return Slides
 		
 		Server = SourceOperatorObject.get_images_servers(self.settings.custom.server)[0]
-		Branch = "" if branch_id == str(Title.id) + "0" else f"&branch_id={branch_id}"
-		URL = f"https://{SourceOperatorObject.api_domain}/api/manga/{Title.slug}/chapter?number={chapter.number}&volume={chapter.volume}{Branch}"
+		Branch = "" if branch_id == str(Title.data.id) + "0" else f"&branch_id={branch_id}"
+		URL = f"https://{SourceOperatorObject.api_domain}/api/manga/{Title.data.slug}/chapter?number={chapter.number}&volume={chapter.volume}{Branch}"
 		Response = self.requestor.get(URL)
 		
 		if Response.ok and Response.json:
@@ -230,14 +233,14 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 			"manga_status_id",
 			"status_id"
 		)
-		URL = f"https://{SourceOperatorObject.api_domain}/api/manga/{Title.slug}?" + "".join(f"fields[]={Item}&" for Item in Query).rstrip("&")
+		URL = f"https://{SourceOperatorObject.api_domain}/api/manga/{Title.data.slug}?" + "".join(f"fields[]={Item}&" for Item in Query).rstrip("&")
 		Response = self.requestor.get(URL)
 
 		if Response.ok and Response.json:
 			return Response.json["data"]
 
 		elif Response.status_code == 451: self.portals.request_error(Response, "Account banned.")
-		elif Response.status_code == 404: self.portals.title_not_found(Title)
+		elif Response.status_code == 404: self.portals.title_not_found(Title.data)
 		else: self.portals.request_error(Response, "Unable to request title data.")
 
 		return None
@@ -271,12 +274,13 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 	# >>>>> ПЕРЕОПРЕДЕЛЯЕМЫЕ МЕТОДЫ <<<<< #
 	#==========================================================================================#
 
-	def _Amend(self, branch: BaseBranch, chapter: Chapter) -> str | None:
+	@override
+	def _amend(self, branch: Branch, chapter: Chapter) -> str | None:
 		"""
 		Дополняет главу дайными о контенте.
 
 		:param branch: Ветвь.
-		:type branch: BaseBranch
+		:type branch: Branch
 		:param chapter: Глава.
 		:type chapter: BaseChapter
 		:return: Дополнительное необязательное сообщение о дополнении.
@@ -287,7 +291,8 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 
 		return None
 
-	def _Parse(self):
+	@override
+	def _parse(self):
 		"""Получает основные данные тайтла."""
 
 		Title = cast("Manga", self.title)
@@ -295,37 +300,38 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 		Data = self.__GetTitleData()
 
 		if Data:
-			Title.set_id(Data["id"])
-			Title.set_content_language("rus")
-			Title.set_localized_name(Data["rus_name"])
-			Title.set_eng_name(Data["eng_name"])
+			Title.data.set_id(Data["id"])
+			Title.data.set_content_language("rus")
+			Title.data.set_localized_name(Data["rus_name"])
+			Title.data.set_eng_name(Data["eng_name"])
 
-			Title.set_another_names(Data["otherNames"])
-			Title.add_another_name(Data["name"])
+			Title.data.set_another_names(Data["otherNames"])
+			Title.data.add_another_name(Data["name"])
 
-			Title.add_cover(ImageData(Data["cover"]["default"]))
-			Title.add_cover(ImageData(Data["cover"]["thumbnail"]))
+			Title.data.add_cover(ImageData(Data["cover"]["default"]))
+			Title.data.add_cover(ImageData(Data["cover"]["thumbnail"]))
 
-			Title.set_authors(self.__GetAuthors(Data))
-			Title.set_publication_year(int(Data["releaseDate"]) if Data["releaseDate"] else None)
-			Title.set_description(self.__GetDescription(Data))
-			Title.set_age_limit(self.__GetAgeLimit(Data))
-			Title.set_type(self.__GetType(Data))
-			Title.set_status(self.__GetStatus(Data))
-			Title.set_is_licensed(Data["is_licensed"])
+			Title.data.set_authors(self.__GetAuthors(Data))
+			Title.data.set_publication_year(int(Data["releaseDate"]) if Data["releaseDate"] else None)
+			Title.data.set_description(self.__GetDescription(Data))
+			Title.data.set_age_limit(self.__GetAgeLimit(Data))
+			Title.data.set_title_type(self.__GetType(Data))
+			Title.data.set_status(self.__GetStatus(Data))
+			Title.data.set_is_licensed(Data["is_licensed"])
 
-			Title.set_genres(self.__GetClassificators(Data, "genres"))
-			Title.set_tags(self.__GetClassificators(Data, "tags"))
-			Title.set_franchises(self.__GetClassificators(Data, "franchise"))
+			Title.data.set_genres(self.__GetClassificators(Data, "genres"))
+			Title.data.set_tags(self.__GetClassificators(Data, "tags"))
+			Title.data.set_franchises(self.__GetClassificators(Data, "franchise"))
 
 			self.__GetBranches()
-		
-	def _PreSaver(self):
+	
+	@override	
+	def _pre_saver(self):
 		"""Запускается непосредственно перед сохранением тайтла."""
 
 		Title = cast("Manga", self.title)
 
-		for CurrentBranch in Title.branches:
+		for CurrentBranch in Title.data.branches:
 			for CurrentChapter in CurrentBranch.chapters:
 				if not self.settings.custom.add_moderation_status:
 					CurrentChapter.extra_data.remove("moderated")
