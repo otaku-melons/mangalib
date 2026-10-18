@@ -1,5 +1,6 @@
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Literal, Sequence, override
+from typing import Literal, override
 
 from dublib.web_requestor import WebRequestor
 from dublib.web_requestor.config.authorization import Bearer
@@ -78,7 +79,7 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 		:type period: int | None
 		:param filters: Строка, описывающая параметры фильтрации.
 		:type filters: str | None
-		:param pages: Количество запрашиваемых страниц каталога.
+		:param pages: Requested pages count.
 		:type pages: int | None
 		:return: Набор собранных алиасов.
 		:rtype: Sequence[str]
@@ -89,37 +90,37 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 		Page = 1
 		Period = period or 24
 		UpdatesCount = 0
-		
+
 		CurrentDate = datetime.now()
-		
+
 		while not IsUpdatePeriodOut:
 			Response = self.requestor.get(f"https://{self.api_domain}/api/latest-updates?page={Page}")
-		
+
 			if Response.ok and Response.json:
 				UpdatesPage = Response.json["data"]
-		
+
 				for UpdateNote in UpdatesPage:
 					Delta = CurrentDate - self.__string_to_date(
-						UpdateNote["last_item_at"]
+						UpdateNote["last_item_at"],
 					)
-		
+
 					if Delta.total_seconds() / 3600 <= Period:
 						Updates.append(UpdateNote["slug_url"])
 						UpdatesCount += 1
-		
+
 					else:
 						IsUpdatePeriodOut = True
-		
+
 			else:
 				IsUpdatePeriodOut = True
 				self.portals.request_error(Response, f"Unable to request updates page {Page}.")
-		
+
 			if not IsUpdatePeriodOut:
 				self.portals.collect_progress_by_page(Page)
 				Page += 1
 
 			if Page == pages: break
-		
+
 		return Updates
 
 	@override
@@ -159,7 +160,7 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 		"""
 
 		Response = self.requestor.get(f"https://{self.api_domain}/api/manga/{slug}")
-		
+
 		if Response.ok: return True
 		if Response.status_code == 404: return False
 
@@ -189,7 +190,7 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 			"mangalib.me": 1,
 			"slashlib.me": 2,
 			"v2.shlib.life": 2,
-			"hentailib.me": 4
+			"hentailib.me": 4,
 		}
 		self.__site_id: Literal[1, 2, 3, 4] | None = self.get_site_id()
 
@@ -203,7 +204,7 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 		"""
 
 		self.__site_id = self.get_site_id(mirror)
-		
+
 		if self.__site_id:
 
 			if self.__site_id in (2, 4) and not self.settings.custom.token:
@@ -231,7 +232,7 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 
 		if server_type is None: server_type = self.settings.custom.images_server
 		if site_id is None: site_id = self.site_id
-		
+
 		url: str = f"https://{self.api_domain}/api/constants?fields[]=imageServers"
 		response = self.requestor.get(url)
 
@@ -241,19 +242,19 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 		data: dict = response.json["data"]
 		servers_data: list[dict] = data["imageServers"]
 		servers: list[ImageServerData] = []
-		
+
 		for server_data in servers_data:
 			domain: str = server_data["url"]
 			domain = domain.replace("https://", "")
-			
+
 			servers.append(ImageServerData(
 				server_type = ImagesServersTypes(server_data["id"]),
 				label = server_data["label"],
 				domain = domain,
-				sites = tuple(server_data["site_ids"])
+				sites = tuple(server_data["site_ids"]),
 			))
 
-		
+
 		servers = list(filter(lambda server: server.server_type is server_type, servers))
 		servers = list(filter(lambda server: site_id in server.sites, servers))
 
@@ -271,7 +272,7 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 
 		if not site:
 			site = self.manifest.domain
-		
+
 		for domain in self.__sites:
 			if domain in site:
 				return self.__sites[domain]

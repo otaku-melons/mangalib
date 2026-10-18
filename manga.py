@@ -37,7 +37,7 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 		if RatingString.isdigit():
 			return int(RatingString)
 
-		return None 
+		return None
 
 	def __GetAuthors(self, data: dict) -> list[str]:
 		"""
@@ -63,7 +63,7 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 
 		Branches: dict[int, Branch] = {}
 		Response = self.requestor.get(f"https://{self.source_operator.api_domain}/api/manga/{Title.data.slug}/chapters")
-		
+
 		if Response.ok and Response.json:
 			Data = Response.json["data"]
 
@@ -191,7 +191,7 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 
 		servers = self.source_operator.get_images_servers()
 		images_server: str = tuple(server.domain for server in servers)[0]
-		
+
 		slides: list[ImageData] = []
 
 		for slide_data in pages:
@@ -221,7 +221,7 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 			2: Statuses.completed,
 			3: Statuses.announced,
 			4: Statuses.dropped,
-			5: Statuses.dropped
+			5: Statuses.dropped,
 		}
 		SiteStatusIndex = data["status"]["id"]
 		if SiteStatusIndex in StatusesDetermination:
@@ -238,7 +238,7 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 		"""
 
 		Title = cast("Manga", self.title)
-		
+
 		Query = (
 			"eng_name",
 			"otherNames",
@@ -250,7 +250,7 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 			"franchise",
 			"authors",
 			"manga_status_id",
-			"status_id"
+			"status_id",
 		)
 		URL = f"https://{self.source_operator.api_domain}/api/manga/{Title.data.slug}?" + "".join(f"fields[]={Item}&" for Item in Query).rstrip("&")
 		Response = self.requestor.get(URL)
@@ -280,7 +280,7 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 			"Маньхуа": Types.manhua,
 			"Руманга": Types.russian_comic,
 			"Комикс западный": Types.western_comic,
-			"OEL-манга": Types.oel
+			"OEL-манга": Types.oel,
 		}
 		SiteType = data["type"]["label"]
 
@@ -307,7 +307,7 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 		"""
 
 		chapter.set_slides(self.__get_slides(branch.id, chapter))
-		
+
 		return None
 
 	@override
@@ -344,8 +344,8 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 			Title.data.set_franchises(self.__GetClassificators(Data, "franchise"))
 
 			self.__GetBranches()
-	
-	@override	
+
+	@override
 	def _pre_saver(self):
 		"""Запускается непосредственно перед сохранением тайтла."""
 
