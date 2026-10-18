@@ -6,9 +6,9 @@ from dublib.web_requestor.config.authorization import Bearer
 
 from melon.core.base.source_operator import BaseSourceOperator
 
-from .settings import CustomSettingsModel
-from .src.enums import ImagesServersTypes
-from .src.structs import ImageServerData
+from .custom import CustomSettingsModel
+from .modules.enums import ImagesServersTypes
+from .modules.structs import ImageServerData
 
 class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 	"""Оператор источника."""
@@ -33,7 +33,7 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 		return self.__site_id
 
 	#==========================================================================================#
-	# >>>>> ПРИВАТНЫЕ МЕТОДЫ <<<<< #
+	# >>>>> PRIVATE METHODS <<<<< #
 	#==========================================================================================#
 
 	def __string_to_date(self, date_str: str) -> datetime:
@@ -51,7 +51,7 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 		return datetime.strptime(date_str, pattern)
 
 	#==========================================================================================#
-	# >>>>> ПЕРЕОПРЕДЕЛЯЕМЫЕ МЕТОДЫ <<<<< #
+	# >>>>> OVERRIDABLE METHODS <<<<< #
 	#==========================================================================================#
 
 	@override
@@ -183,7 +183,7 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 
 	@override
 	def _post_init(self):
-		"""Метод, выполняющийся после инициализации объекта."""
+		"""Execute after instance initialization."""
 
 		self.__sites: dict[str, Literal[1, 2, 3, 4]] = {
 			"mangalib.me": 1,
@@ -214,7 +214,7 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 			self.requestor.config.headers.remove("site-id")
 
 	#==========================================================================================#
-	# >>>>> ПУБЛИЧНЫЕ МЕТОДЫ <<<<< #
+	# >>>>> PUBLIC METHODS <<<<< #
 	#==========================================================================================#
 
 	def get_images_servers(self, server_type: ImagesServersTypes | None = None, site_id: Literal[1, 2, 3, 4] | None = None) -> tuple[ImageServerData, ...]:

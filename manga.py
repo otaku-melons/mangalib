@@ -14,12 +14,12 @@ if TYPE_CHECKING:
 	from melon.core.base.formats.manga.controller import Manga
 
 	from . import SourceOperator as SourceOperator
-	from .settings import CustomSettingsModel as CustomSettingsModel
+	from .custom import CustomSettingsModel as CustomSettingsModel
 
 class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 	"""Парсер."""
 	#==========================================================================================#
-	# >>>>> ПРИВАТНЫЕ МЕТОДЫ <<<<< #
+	# >>>>> PRIVATE METHODS <<<<< #
 	#==========================================================================================#
 
 	def __GetAgeLimit(self, data: dict) -> int | None:
@@ -290,7 +290,7 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 		return None
 
 	#==========================================================================================#
-	# >>>>> ПЕРЕОПРЕДЕЛЯЕМЫЕ МЕТОДЫ <<<<< #
+	# >>>>> OVERRIDABLE METHODS <<<<< #
 	#==========================================================================================#
 
 	@override
