@@ -1,6 +1,6 @@
 from enum import Enum
 
-class ImagesServersTypes(Enum):
+class ImageServerType(Enum):
 	"""Перечисление типов серверов изображений."""
 
 	Main = "main"

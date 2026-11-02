@@ -1,166 +1,215 @@
-from typing import TYPE_CHECKING, Literal, cast, override
-
-from dublib.functions.data import zerotify
+from typing import TYPE_CHECKING, Literal, override
 
 from melon.core import exceptions
 from melon.core.base.formats.base_format.branch import Branch
-from melon.core.base.formats.base_format.enums import Statuses
+from melon.core.base.formats.base_format.enums import Status
 from melon.core.base.formats.manga.chapter import Chapter
-from melon.core.base.formats.manga.enums import Types
-from melon.core.base.parsers.manga import BaseMangaParser
-from melon.core.base.structs.image import ImageData
+from melon.core.base.formats.manga.enums import Type
+from melon.core.base.parser.presets import BaseMangaParser
+from melon.core.base.structs.image import ImageData, ImageType
+from melon.sdk.html_parser import HyperTextParser
 
 if TYPE_CHECKING:
-	from melon.core.base.formats.manga.controller import Manga
+	from collections.abc import Callable
+
+	from melon.core.html.elements import Paragraph
 
 	from . import SourceOperator as SourceOperator
 	from .custom import CustomSettingsModel as CustomSettingsModel
 
 class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
-	"""Парсер."""
-	#==========================================================================================#
-	# >>>>> PRIVATE METHODS <<<<< #
-	#==========================================================================================#
+	"""Parser."""
 
-	def __GetAgeLimit(self, data: dict) -> int | None:
+	@override
+	def _amend(self, branch: Branch, chapter: Chapter) -> str | None:
 		"""
-		Получает возрастной рейтинг.
+		Amend chapter content.
 
-		:param data: Словарь данных тайтла.
-		:type data: dict
-		:return: Возрастной рейтинг.
-		:rtype: int | None
-		"""
+		Args:
+			branch (Branch): Branch.
+			chapter (Any): Chapter
 
-		RatingString: str = data["ageRestriction"]["label"].split(" ")[0].replace("+", "").replace("Нет", "")
-
-		if RatingString.isdigit():
-			return int(RatingString)
-
-		return None
-
-	def __GetAuthors(self, data: dict) -> list[str]:
-		"""
-		Получает список авторов.
-
-		:param data: Словарь данных тайтла.
-		:type data: dict
-		:return: Список авторов.
-		:rtype: list[str]
+		Returns:
+			str | None: Optional additional message about amending result.
 		"""
 
-		Authors = []
+		chapter.set_slides(self.__get_slides(branch.id, chapter))
 
-		for Author in data["authors"]:
-			Authors.append(Author["name"])
+	@override
+	def _parse(self):
+		"""Parse title data witchout chapters content."""
 
-		return Authors
+		data: dict = self.__get_title_data()
 
-	def __GetBranches(self):
+		self.title.data.set_id(data["id"])
+		self.title.data.set_slug(data["slug_url"]) # Fix for using short slugs.
+		self.title.data.set_content_language("rus")
+		self.title.data.set_localized_name(data["rus_name"])
+		self.title.data.set_eng_name(data["eng_name"])
+		self.title.data.set_another_names(data["otherNames"])
+		self.title.data.add_another_name(data["name"])
+		self.title.data.add_cover(ImageData(data["cover"]["default"], ImageType.Cover))
+		self.title.data.add_cover(ImageData(data["cover"]["thumbnail"], ImageType.Cover))
+		self.title.data.set_publication_year(int(data["releaseDate"]) if data["releaseDate"] else None)
+		self.title.data.set_is_licensed(data["is_licensed"])
+
+		self.__get_authors(data)
+		self.__get_description(data)
+		self.__get_age_limit(data)
+		self.__get_type(data)
+		self.__get_status(data)
+		self.__get_classificators(data, "genres")
+		self.__get_classificators(data, "tags")
+		self.__get_classificators(data, "franchise")
+
+		self.__get_branches()
+
+	@override
+	def _pre_saver(self):
+		"""Run before title saving in descriptive JSON file."""
+
+		for branch in self.title.data.branches:
+			for chapter in branch.chapters:
+				if not self.settings.custom.add_moderation_status:
+					chapter.extra_data.remove("moderated")
+
+	def __get_age_limit(self, data: dict):
+		"""
+		Get age limit.
+
+		Args:
+			data (dict): Title data.
+		"""
+
+		value: str = data["ageRestriction"]["label"]
+		rating_string: str = value.split(" ")[0].replace("+", "").replace("Нет", "")
+
+		if rating_string.isdigit():
+			self.title.data.set_age_limit(int(rating_string))
+
+	def __get_authors(self, data: dict):
+		"""
+		Get authors.
+
+		Args:
+			data (dict): Title data.
+		"""
+
+		authors: list[str] = [author["name"] for author in data["authors"]]
+		self.title.data.set_authors(authors)
+
+	def __get_branches(self):
 		"""Получает ветви контента тайтла и устанавливает их."""
 
-		Title = cast("Manga", self.title)
+		branches: dict[int, Branch] = {}
+		response = self.requestor.get(f"https://{self.source_operator.api_domain}/api/manga/{self.title.data.slug}/chapters")
 
-		Branches: dict[int, Branch] = {}
-		Response = self.requestor.get(f"https://{self.source_operator.api_domain}/api/manga/{Title.data.slug}/chapters")
+		if not response.ok or not response.json:
+			self.portals.request_error(response, "Unable to request chapter.")
 
-		if Response.ok and Response.json:
-			Data = Response.json["data"]
+		data: list[dict] = response.json["data"]
 
-			for CurrentChapterData in Data:
+		for chapter_data in data:
 
-				for BranchData in CurrentChapterData["branches"]:
-					OriginalBranchID: int | None = BranchData.get("branch_id")
-					BranchID: int = OriginalBranchID or int(str(Title.data.id) + "0")
+			for branch_data in chapter_data["branches"]:
+				original_branch_id: int | None = branch_data.get("branch_id")
+				branch_id: int = original_branch_id or int(str(self.title.data.id) + "0")
 
-					if BranchID not in Branches.keys():
-						Branches[BranchID] = Branch(BranchID)
+				if branch_id not in branches.keys():
+					branches[branch_id] = Branch(branch_id)
 
-					ChapterObject = Chapter(self, CurrentChapterData["id"])
-					ChapterObject.set_volume(CurrentChapterData["volume"])
-					ChapterObject.set_number(CurrentChapterData["number"])
-					ChapterObject.set_name(CurrentChapterData["name"])
-					ChapterObject.set_is_paid("restricted_view" in BranchData and not BranchData["restricted_view"]["is_open"])
-					ChapterObject.set_workers([sub["name"] for sub in BranchData["teams"]])
-					ChapterObject.extra_data.set("moderated", False if "moderation" in BranchData else True)
+				buffer = Chapter(self, chapter_data["id"])
+				buffer.set_volume(chapter_data["volume"])
+				buffer.set_number(chapter_data["number"])
+				buffer.set_name(chapter_data["name"])
+				buffer.set_is_paid("restricted_view" in branch_data and not branch_data["restricted_view"]["is_open"])
+				buffer.set_workers([sub["name"] for sub in branch_data["teams"]])
+				buffer.extra_data.set("moderated", False if "moderation" in branch_data else True)
 
-					if self.settings.custom.add_free_publication_date and ChapterObject.is_paid:
-						ChapterObject.extra_data.set("free-publication-date", BranchData["restricted_view"]["expired_at"])
+				if self.settings.custom.add_free_publication_date and buffer.is_paid:
+					buffer.extra_data.set("free-publication-date", branch_data["restricted_view"]["expired_at"])
 
-					Branches[BranchID].add_chapter(ChapterObject)
+				branches[branch_id].add_chapter(buffer)
 
-		else: self.portals.request_error(Response, "Unable to request chapter.", exception = False)
+		self.title.data.set_branches(tuple(branches.values()))
 
-		for CurrentBranch in Branches.values(): Title.data.add_branch(CurrentBranch)
-
-	def __GetDescription(self, data: dict) -> str | None:
+	def __get_description(self, data: dict):
 		"""
-		Возвращает описание тайтла.
+		Get description.
 
-		:param data: Словарь данных тайтла.
-		:type data: dict
-		:return: Описание.
-		:rtype: str | None
+		Args:
+			data (dict): Title data.
 		"""
 
-		Summary: dict | None = data.get("summary")
+		summary: dict | None = data.get("summary")
 
-		if not Summary:
-			return None
+		if not summary:
+			return
 
-		DescriptionContent: dict = Summary["content"][0]
-		Content: list[dict] | None = DescriptionContent.get("content")
+		description_content: list[dict] | None = summary.get("content")
 
-		if not Content:
-			return None
+		if not description_content:
+			return
 
-		Content = cast("list[dict]", Content)
-		DescriptionLines: list[str] = []
+		html_parser = HyperTextParser(self.settings.common.pretty)
+		paragraphs: list[Paragraph] = []
 
-		for Element in Content:
-			if Element.get("type") != "text": continue
-			Paragraph: str | None = Element.get("text")
-			if not Paragraph: continue
-			DescriptionLines.append(Paragraph)
+		for content in description_content:
+			elements: list[dict] | None = content.get("content")
 
-		Description = "\n".join(DescriptionLines)
+			if not elements:
+				continue
 
-		return zerotify(Description)
+			for element in elements:
+				text: str | None = element.get("text")
 
-	def __GetClassificators(self, data: dict, classificators_type: Literal["franchise", "genres", "tags"]) -> list[str]:
+				if not text or not text.strip():
+					continue
+
+				tag = html_parser.make_tag("p", text)
+				paragraphs.extend(html_parser.parse_paragraphs(tag))
+
+		self.title.data.set_description(paragraphs)
+
+	def __get_classificators(self, data: dict, classificators_type: Literal["franchise", "genres", "tags"]):
 		"""
-		Получает классификаторы тайтла.
+		Get classificators.
 
-		:param data: Словарь данных тайтла.
-		:type data: dict
-		:param classificators_type: Тип получаемых классификаторов.
-		:type classificators_type: Literal["genres", "tags"]
-		:return: Список классификаторов.
-		:rtype: list[str]
+		Args:
+			data (dict): Title data.
+			classificators_type (Literal["franchise", "genres", "tags"]): Classificator type.
 		"""
 
-		Classificators = []
-		for ClassificatorData in data[classificators_type]:
-			Classificators.append(ClassificatorData["name"])
+		classificators: list[str] = []
 
-		if classificators_type == "franchise" and "Оригинальные работы" in Classificators:
-			Classificators.remove("Оригинальные работы")
+		for classificator_data in data[classificators_type]:
+			classificators.append(classificator_data["name"])
 
-		return Classificators
+		if classificators_type == "franchise" and "Оригинальные работы" in classificators:
+			classificators.remove("Оригинальные работы")
+
+		setters: dict[Literal["franchise", "genres", "tags"], Callable] = {
+			"franchise": self.title.data.set_franchises,
+			"genres": self.title.data.set_genres,
+			"tags": self.title.data.set_tags,
+		}
+
+		setters[classificators_type](classificators)
 
 	def __get_slides(self, branch_id: int, chapter: Chapter) -> list[ImageData]:
 		"""
-		Получает данные слайдов.
+		Get slides.
 
-		:param branch_id: ID ветви.
-		:type branch_id: int
-		:param chapter: Глава.
-		:type chapter: Chapter
-		:return: Список данных слайдов.
-		:rtype: list[ImageData]
+		Args:
+			branch_id (int): Branch ID.
+			chapter (Chapter): Chapter.
+
+		Returns:
+			list[ImageData]: Slides.
+
+		Raises:
+			exceptions.parsing.ParsingError: Missing chapter data.
 		"""
-
-		title = cast("Manga", self.title)
 
 		if chapter.extra_data.exists("moderated") and not chapter.extra_data.get("moderated"):
 			self.portals.chapter_skipped(chapter, comment = "Not moderated.")
@@ -178,10 +227,10 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 		else:
 			raise exceptions.parsing.ParsingError("Missing volume. Unable create request params.")
 
-		if branch_id != int(f"{title.data.id}0"):
+		if branch_id != int(f"{self.title.data.id}0"):
 			params["branch_id"] = branch_id
 
-		response = self.requestor.get(f"https://{self.source_operator.api_domain}/api/manga/{title.data.slug}/chapter", params = params)
+		response = self.requestor.get(f"https://{self.source_operator.api_domain}/api/manga/{self.title.data.slug}/chapter", params = params)
 
 		if not response.ok or not response.json:
 			self.portals.request_error(response, "Unable to request chapter content.")
@@ -199,47 +248,44 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 			url = url.replace(" ", "%20")
 			url = f"https://{images_server}{url}"
 
-			image = ImageData(url)
+			image = ImageData(url, ImageType.Slide)
 			image.create_resolution(slide_data.get("width"), slide_data.get("height"))
 
 			slides.append(image)
 
 		return slides
 
-	def __GetStatus(self, data: dict) -> Statuses | None:
+	def __get_status(self, data: dict):
 		"""
-		Определяет статус тайтла.
+		Get status.
 
-		:param data: Словарь данных тайтла.
-		:type data: dict
-		:return: Статус тайтла
-		:rtype: Statuses | None
+		Args:
+			data (dict): Title data.
 		"""
 
-		StatusesDetermination = {
-			1: Statuses.ongoing,
-			2: Statuses.completed,
-			3: Statuses.announced,
-			4: Statuses.dropped,
-			5: Statuses.dropped,
+		determinations: dict[int, Status] = {
+			1: Status.ongoing,
+			2: Status.completed,
+			3: Status.announced,
+			4: Status.dropped,
+			5: Status.dropped,
 		}
-		SiteStatusIndex = data["status"]["id"]
-		if SiteStatusIndex in StatusesDetermination:
-			return StatusesDetermination[SiteStatusIndex]
+		index: int = data["status"]["id"]
 
-		return None
+		if index in determinations:
+			self.title.data.set_status(determinations[index])
+		else:
+			self.portals.printer.warning(f"Unknown status index: {index}.")
 
-	def __GetTitleData(self) -> dict | None:
+	def __get_title_data(self) -> dict:
 		"""
-		Получает данные тайтла.
+		Get title data.
 
-		:return: Словарь данных тайтла.
-		:rtype: dict | None
+		Returns:
+			dict: Title data.
 		"""
 
-		Title = cast("Manga", self.title)
-
-		Query = (
+		query: tuple[str, ...] = (
 			"eng_name",
 			"otherNames",
 			"summary",
@@ -252,106 +298,37 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 			"manga_status_id",
 			"status_id",
 		)
-		URL = f"https://{self.source_operator.api_domain}/api/manga/{Title.data.slug}?" + "".join(f"fields[]={Item}&" for Item in Query).rstrip("&")
-		Response = self.requestor.get(URL)
 
-		if Response.ok and Response.json:
-			return Response.json["data"]
+		url: str = f"https://{self.source_operator.api_domain}/api/manga/{self.title.data.slug}?" + "".join(f"fields[]={item}&" for item in query).rstrip("&")
+		response = self.requestor.get(url)
 
-		elif Response.status_code == 451: self.portals.request_error(Response, "Account banned.")
-		elif Response.status_code == 404: self.portals.title_not_found(Title.data)
-		else: self.portals.request_error(Response, "Unable to request title data.")
+		if response.ok and response.json:
+			return response.json["data"]
 
-		return None
+		elif response.status_code == 451:
+			self.portals.request_error(response, "Account banned.")
 
-	def __GetType(self, data: dict) -> Types | None:
+		self.portals.request_error(response, "Unable to request title data.")
+
+	def __get_type(self, data: dict):
 		"""
-		Определяет тип тайтла.
+		Get title type.
 
-		:param data: Словарь данных тайтла.
-		:type data: dict
-		:return: Тип тайтла.
-		:rtype: Types | None
+		Args:
+			data (dict): Title data.
 		"""
 
-		TypesDeterminations = {
-			"Манга": Types.manga,
-			"Манхва": Types.manhwa,
-			"Маньхуа": Types.manhua,
-			"Руманга": Types.russian_comic,
-			"Комикс западный": Types.western_comic,
-			"OEL-манга": Types.oel,
+		determinations: dict[str, Type] = {
+			"Манга": Type.manga,
+			"Манхва": Type.manhwa,
+			"Маньхуа": Type.manhua,
+			"Руманга": Type.russian_comic,
+			"Комикс западный": Type.western_comic,
+			"OEL-манга": Type.oel,
 		}
-		SiteType = data["type"]["label"]
+		value: str = data["type"]["label"]
 
-		if SiteType in TypesDeterminations:
-			return TypesDeterminations[SiteType]
-
-		return None
-
-	#==========================================================================================#
-	# >>>>> OVERRIDABLE METHODS <<<<< #
-	#==========================================================================================#
-
-	@override
-	def _amend(self, branch: Branch, chapter: Chapter) -> str | None:
-		"""
-		Дополняет главу дайными о контенте.
-
-		:param branch: Ветвь.
-		:type branch: Branch
-		:param chapter: Глава.
-		:type chapter: BaseChapter
-		:return: Дополнительное необязательное сообщение о дополнении.
-		:rtype: str | None
-		"""
-
-		chapter.set_slides(self.__get_slides(branch.id, chapter))
-
-		return None
-
-	@override
-	def _parse(self):
-		"""Получает основные данные тайтла."""
-
-		Title = cast("Manga", self.title)
-
-		Data = self.__GetTitleData()
-
-		if Data:
-			Title.data.set_id(Data["id"])
-			Title.data.set_slug(Data["slug_url"])
-			Title.data.set_content_language("rus")
-			Title.data.set_localized_name(Data["rus_name"])
-			Title.data.set_eng_name(Data["eng_name"])
-
-			Title.data.set_another_names(Data["otherNames"])
-			Title.data.add_another_name(Data["name"])
-
-			Title.data.add_cover(ImageData(Data["cover"]["default"]))
-			Title.data.add_cover(ImageData(Data["cover"]["thumbnail"]))
-
-			Title.data.set_authors(self.__GetAuthors(Data))
-			Title.data.set_publication_year(int(Data["releaseDate"]) if Data["releaseDate"] else None)
-			Title.data.set_description(self.__GetDescription(Data))
-			Title.data.set_age_limit(self.__GetAgeLimit(Data))
-			Title.data.set_title_type(self.__GetType(Data))
-			Title.data.set_status(self.__GetStatus(Data))
-			Title.data.set_is_licensed(Data["is_licensed"])
-
-			Title.data.set_genres(self.__GetClassificators(Data, "genres"))
-			Title.data.set_tags(self.__GetClassificators(Data, "tags"))
-			Title.data.set_franchises(self.__GetClassificators(Data, "franchise"))
-
-			self.__GetBranches()
-
-	@override
-	def _pre_saver(self):
-		"""Запускается непосредственно перед сохранением тайтла."""
-
-		Title = cast("Manga", self.title)
-
-		for CurrentBranch in Title.data.branches:
-			for CurrentChapter in CurrentBranch.chapters:
-				if not self.settings.custom.add_moderation_status:
-					CurrentChapter.extra_data.remove("moderated")
+		if value in determinations:
+			self.title.data.set_title_type(determinations[value])
+		else:
+			self.portals.printer.warning(f"Inknown type literal: \"{value}\".")

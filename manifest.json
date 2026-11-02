@@ -1,8 +1,5 @@
 {
-	"object": "parser",
 	"domain": "mangalib.me",
-	"content_types": ["manga"],
 	"parent": null,
-	"version": "$last_git_tag",
-	"melon_required_version": ">=1.0.0-rc.5"
+	"melon_required_version": ">=1.0.0-rc.7"
 }

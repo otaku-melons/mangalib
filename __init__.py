@@ -8,14 +8,14 @@ from dublib.web_requestor.config.authorization import Bearer
 from melon.core.base.source_operator import BaseSourceOperator
 
 from .custom import CustomSettingsModel
-from .modules.enums import ImagesServersTypes
+from .modules.enums import ImageServerType
 from .modules.structs import ImageServerData
 
 class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 	"""Оператор источника."""
 
 	#==========================================================================================#
-	# >>>>> СВОЙСТВА <<<<< #
+	# >>>>> PROPERTIES <<<<< #
 	#==========================================================================================#
 
 	@property
@@ -218,12 +218,12 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 	# >>>>> PUBLIC METHODS <<<<< #
 	#==========================================================================================#
 
-	def get_images_servers(self, server_type: ImagesServersTypes | None = None, site_id: Literal[1, 2, 3, 4] | None = None) -> tuple[ImageServerData, ...]:
+	def get_images_servers(self, server_type: ImageServerType | None = None, site_id: Literal[1, 2, 3, 4] | None = None) -> tuple[ImageServerData, ...]:
 		"""
 		Получает последовательность доменов серверов изображений.
 
 		:param server_type: Тип сервера изображений. По умолчанию определяется настройками парсера.
-		:type server_type: ImagesServersTypes | None
+		:type server_type: ImageServerType | None
 		:param site_id: ID сайта, для которого запрашиваются домены серверов. По умолчанию определяется на основе манифеста.
 		:type site_id: Literal[1, 2, 3, 4] | None
 		:return: Последовательность данных доменов.
@@ -248,7 +248,7 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 			domain = domain.replace("https://", "")
 
 			servers.append(ImageServerData(
-				server_type = ImagesServersTypes(server_data["id"]),
+				server_type = ImageServerType(server_data["id"]),
 				label = server_data["label"],
 				domain = domain,
 				sites = tuple(server_data["site_ids"]),

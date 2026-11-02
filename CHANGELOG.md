@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For visual categorization of changes emojis are used in accordance with [gitmoji](https://gitmoji.dev).
 
-## [3.3.1] - YYYY-MM-DD
+## [3.3.2]
+
+### 🎨 Changed
+- Update descriptions parsing system for styling support.
+
+## [3.3.1] - 2026-10-23
 
 ### ✨ Added
 - Custom settings typing.
