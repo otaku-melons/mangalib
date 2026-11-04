@@ -9,6 +9,9 @@ For visual categorization of changes emojis are used in accordance with [gitmoji
 
 ## [3.3.2]
 
+### ✨ Added
+- Compatibility with `melon>=1.0.0-rc.7`.
+
 ### 🎨 Changed
 - Update descriptions parsing system for styling support.
 
