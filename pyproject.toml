@@ -1,0 +1,22 @@
+[build-system]
+requires = ["uv-build>=0.13,<0.14"]
+build-backend = "uv_build"
+
+[project]
+name = "mangalib"
+version = "3.4.0"
+description = "Melon parser module for MangaLib."
+readme = "README.md"
+authors = [
+	{ name = "dub1401", email = "vlad.milosta@outlook.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+	"melon>=1.0.0rc8",
+]
+
+[project.entry-points."melon.parsers"]
+mangalib = "mangalib"
+
+[dependency-groups]
+dev = ["ruff", "ty", "typos"]

@@ -8,9 +8,9 @@ from dublib.web_requestor.config.authorization import Bearer
 from melon.core.base.parser.enums import ContentType
 from melon.core.base.source_operator import BaseSourceOperator
 
-from .custom import CustomSettingsModel
 from .modules.enums import ImageServerType
 from .modules.structs import ImageServerData
+from .settings.custom import CustomSettingsModel
 
 class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 	"""Оператор источника."""
@@ -74,16 +74,15 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 	@override
 	def _collect_slugs(self, period: int | None = None, filters: str | None = None, pages: int | None = None) -> Sequence[str]:
 		"""
-		Собирает список алиасов тайтлов по заданным параметрам.
+		Collect slugs by parameters.
 
-		:param period: Количество часов до текущего момента, составляющее период получения данных.
-		:type period: int | None
-		:param filters: Строка, описывающая параметры фильтрации.
-		:type filters: str | None
-		:param pages: Requested pages count.
-		:type pages: int | None
-		:return: Набор собранных алиасов.
-		:rtype: Sequence[str]
+		Args:
+			period (int | None): Period in hours.
+			filters (str | None): Filters, specified by parser.
+			pages (int | None, optional): Catalog pages count.
+
+		Returns:
+			Sequence[str]: Collected slugs.
 		"""
 
 		Updates = []
@@ -127,10 +126,10 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 	@override
 	def _export_custom_settings_model(self) -> type[CustomSettingsModel]:
 		"""
-		Экспортирует модель кастомных настроек парсера. Модель должна быть унаследована от `CustomSettingsModel`.
+		Export custom parser settings [pydantic](https://github.com/pydantic/pydantic) model.
 
-		:return: Модель кастомных настроек парсера.
-		:rtype: type[CustomSettingsModel]
+		Returns:
+			type[CustomSettingsModel]: Custom parser settings model.
 		"""
 
 		return CustomSettingsModel
@@ -152,10 +151,10 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 	@override
 	def _initialize_requestor(self) -> WebRequestor:
 		"""
-		Инициализирует модуль WEB-запросов.
+		Initialize requests operator.
 
-		:return: Оператор запросов.
-		:rtype: WebRequestor
+		Returns:
+			WebRequestor: Requests operator.
 		"""
 
 		WebRequestorObject = super()._initialize_requestor()
@@ -166,12 +165,13 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 	@override
 	def _is_title_exists(self, slug: str) -> bool | None:
 		"""
-		Проверяет, существует ли тайтл на сервере.
+		Check is title exists.
 
-		:param slug: Алиас тайтла.
-		:type slug: str
-		:return: Возвращает статус существования файла на сервере или `None` при невозможности проверки.
-		:rtype: bool | None
+		Args:
+			slug (str): Title slug.
+
+		Returns:
+			bool | None: Title existing status or `None` if unable check.
 		"""
 
 		Response = self.requestor.get(f"https://{self.api_domain}/api/manga/{slug}")
@@ -184,12 +184,13 @@ class SourceOperator(BaseSourceOperator[CustomSettingsModel]):
 	@override
 	def _extract_slug_from_string(self, string: str) -> str | None:
 		"""
-		Парсит алиас тайтла из переданной строки. Может использоваться для обработки тайтлов по ссылкам.
+		Extract title slug from string.
 
-		:param string: Строка, из которой требуется получить алиас.
-		:type string: str
-		:return: Алиас или `None` в случае неудачи или отсутствия имплементации.
-		:rtype: str | None
+		Args:
+			string (str): String data.
+
+		Returns:
+			str | None: Title slug.
 		"""
 
 		string = string.split("?")[0]

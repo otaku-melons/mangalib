@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from .modules.enums import ImageServerType
+from ..modules.enums import ImageServerType
 
 class CustomSettingsModel(BaseModel):
 	"""Custom parser settings model."""

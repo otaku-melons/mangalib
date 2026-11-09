@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 	from melon.core.html.elements import Paragraph
 
 	from . import SourceOperator as SourceOperator
-	from .custom import CustomSettingsModel as CustomSettingsModel
+	from .settings.custom import CustomSettingsModel as CustomSettingsModel
 
 class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 	"""Parser."""
@@ -167,7 +167,7 @@ class Parser(BaseMangaParser["SourceOperator", "CustomSettingsModel"]):
 					continue
 
 				tag = html_parser.make_tag("p", text)
-				paragraphs.extend(html_parser.parse_paragraphs(tag))
+				paragraphs.extend(html_parser.parse_paragraphs(tag, allow_footnotes = False))
 
 		self.title.data.set_description(paragraphs)
 
